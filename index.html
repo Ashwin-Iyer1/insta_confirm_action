@@ -1,213 +1,240 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy – Instagram GraphQL Confirm</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      min-width: 300px;
-      max-width: 340px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      background: linear-gradient(145deg, #fafafa 0%, #f0f0f5 100%);
-      color: #262626;
+    :root {
+      --gradient: linear-gradient(135deg, #833ab4 0%, #e1306c 50%, #fd1d1d 100%);
     }
 
-    .header {
-      background: linear-gradient(135deg, #833ab4 0%, #fd1d1d 50%, #fcb045 100%);
-      padding: 22px 20px 18px;
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #262626;
+      background: #fafafa;
+      line-height: 1.7;
+    }
+
+    header {
+      background: var(--gradient);
+      padding: 60px 24px 48px;
       text-align: center;
       position: relative;
       overflow: hidden;
     }
 
-    .header::after {
+    header::after {
       content: '';
       position: absolute;
       inset: 0;
-      background: radial-gradient(circle at 30% 50%, rgba(255,255,255,0.15) 0%, transparent 60%);
+      background: radial-gradient(circle at 30% 50%, rgba(255,255,255,0.12) 0%, transparent 60%);
     }
 
-    .header-icon {
-      width: 40px;
-      height: 40px;
-      margin: 0 auto 10px;
-      background: rgba(255,255,255,0.2);
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      backdrop-filter: blur(4px);
-      position: relative;
-      z-index: 1;
-    }
-
-    .header-icon svg {
-      width: 22px;
-      height: 22px;
-      fill: #fff;
-    }
-
-    .header h1 {
-      font-size: 16px;
-      font-weight: 700;
+    header h1 {
       color: #fff;
-      letter-spacing: -0.2px;
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
       position: relative;
       z-index: 1;
     }
 
-    .header p {
-      font-size: 11px;
-      color: rgba(255,255,255,0.8);
-      margin-top: 4px;
-      font-weight: 500;
+    header p {
+      color: rgba(255,255,255,0.85);
+      font-size: 14px;
+      margin-top: 8px;
       position: relative;
       z-index: 1;
     }
 
-    .content {
-      padding: 16px 20px 20px;
-    }
-
-    .status-card {
+    main {
+      max-width: 720px;
+      margin: -24px auto 60px;
       background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04);
+      padding: 40px 36px;
+      position: relative;
+      z-index: 1;
+    }
+
+    h2 {
+      font-size: 18px;
+      font-weight: 700;
+      margin: 32px 0 10px;
+      color: #262626;
+      letter-spacing: -0.2px;
+    }
+
+    h2:first-child {
+      margin-top: 0;
+    }
+
+    p, li {
+      font-size: 15px;
+      color: #555;
+    }
+
+    ul {
+      margin: 8px 0 8px 20px;
+    }
+
+    li {
+      margin-bottom: 6px;
+    }
+
+    .highlight-box {
+      background: linear-gradient(135deg, #fce7f3, #ede9fe);
       border-radius: 12px;
-      padding: 14px 16px;
-      margin-bottom: 12px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04);
-      display: flex;
-      align-items: center;
-      gap: 12px;
+      padding: 16px 20px;
+      margin: 16px 0;
+      font-size: 14px;
+      color: #374151;
+      font-weight: 500;
     }
 
-    .status-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: #22c55e;
-      box-shadow: 0 0 0 3px rgba(34,197,94,0.2);
-      flex-shrink: 0;
-    }
-
-    .status-text {
-      font-size: 13px;
-      font-weight: 600;
+    .highlight-box strong {
       color: #262626;
     }
 
-    .status-text span {
-      font-weight: 400;
-      color: #737373;
-      font-size: 11.5px;
-      display: block;
-      margin-top: 2px;
-    }
-
-    .info-section {
-      background: #fff;
-      border-radius: 12px;
-      padding: 14px 16px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04);
-    }
-
-    .info-section h3 {
+    .badge {
+      display: inline-block;
+      background: var(--gradient);
+      color: #fff;
       font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: #a0a0a0;
-      margin-bottom: 10px;
       font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 20px;
+      vertical-align: middle;
+      margin-left: 6px;
     }
 
-    .intercept-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 7px 0;
-    }
-
-    .intercept-item:not(:last-child) {
-      border-bottom: 1px solid #f0f0f0;
-    }
-
-    .intercept-icon {
-      width: 28px;
-      height: 28px;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      font-size: 13px;
-    }
-
-    .intercept-icon.graphql {
-      background: #ede9fe;
-      color: #7c3aed;
-    }
-
-    .intercept-icon.likes {
-      background: #fce7f3;
-      color: #ec4899;
-    }
-
-    .intercept-label {
-      font-size: 12.5px;
-      color: #404040;
-      font-weight: 500;
-    }
-
-    .intercept-label code {
-      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-      font-size: 11px;
-      background: #f5f5f5;
-      padding: 1px 5px;
-      border-radius: 4px;
-      color: #7c3aed;
-    }
-
-    .footer {
+    footer {
       text-align: center;
-      padding: 0 20px 16px;
-      font-size: 10.5px;
-      color: #b0b0b0;
+      padding: 24px;
+      font-size: 13px;
+      color: #999;
+    }
+
+    a {
+      color: #e1306c;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 600px) {
+      main {
+        margin: -16px 12px 40px;
+        padding: 28px 20px;
+      }
+
+      header {
+        padding: 48px 20px 40px;
+      }
+
+      header h1 {
+        font-size: 22px;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="header">
-    <div class="header-icon">
-      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5zm-1.5 14.59l-3.54-3.54 1.41-1.41 2.13 2.13 4.63-4.63 1.41 1.41L10.5 16.59z"/>
-      </svg>
-    </div>
-    <h1>InstaConfirm</h1>
-    <p>Request Interceptor</p>
+
+<header>
+  <h1>Privacy Policy</h1>
+  <p>Instagram GraphQL Confirm – Chrome Extension</p>
+</header>
+
+<main>
+  <h2>Overview</h2>
+  <p>
+    Instagram GraphQL Confirm ("the Extension") is a browser extension that intercepts certain
+    network requests on <strong>instagram.com</strong> and displays a confirmation dialog before
+    they are sent. This policy explains what data the Extension accesses and how it is handled.
+  </p>
+
+  <div class="highlight-box">
+    <strong>TL;DR:</strong> This extension does not collect, store, or transmit any personal data.
+    Everything runs locally in your browser.
   </div>
 
-  <div class="content">
-    <div class="status-card">
-      <div class="status-dot"></div>
-      <div class="status-text">
-        Active & Monitoring
-        <span>Watching instagram.com requests</span>
-      </div>
-    </div>
+  <h2>Data Collection <span class="badge">None</span></h2>
+  <p>The Extension does <strong>not</strong> collect any data whatsoever. Specifically:</p>
+  <ul>
+    <li>No personal information is gathered (name, email, account details, etc.).</li>
+    <li>No browsing history or activity is recorded.</li>
+    <li>No cookies, tokens, or credentials are read or stored.</li>
+    <li>No analytics, telemetry, or tracking of any kind is used.</li>
+  </ul>
 
-    <div class="info-section">
-      <h3>Intercepted Endpoints</h3>
-      <div class="intercept-item">
-        <div class="intercept-icon graphql">&#9672;</div>
-        <div class="intercept-label"><code>/graphql/query</code></div>
-      </div>
-      <div class="intercept-item">
-        <div class="intercept-icon likes">&hearts;</div>
-        <div class="intercept-label"><code>/api/v1/web/likes</code></div>
-      </div>
-    </div>
-  </div>
+  <h2>How the Extension Works</h2>
+  <p>
+    The Extension operates entirely within your browser tab on <strong>instagram.com</strong>. It:
+  </p>
+  <ul>
+    <li>Intercepts outgoing <code>fetch()</code> and <code>XMLHttpRequest</code> calls that match
+      specific Instagram API patterns (<code>/graphql/query</code> and
+      <code>/api/v1/web/likes</code>).</li>
+    <li>Displays a confirmation dialog showing the request URL and parameters so you can choose
+      to <strong>Allow</strong> or <strong>Block</strong> the request.</li>
+    <li>If blocked, the request is silently cancelled and a harmless stub response is returned
+      to the page.</li>
+  </ul>
+  <p>
+    All of this processing happens <strong>locally</strong> in the content script injected into the
+    page. No request data is sent to any external server, third party, or remote endpoint operated
+    by the Extension.
+  </p>
 
-  <div class="footer">v1.0 &middot; Confirms before actions execute</div>
+  <h2>Permissions</h2>
+  <p>The Extension requests <strong>no special browser permissions</strong>. It only uses a content
+    script that runs on <code>https://www.instagram.com/*</code>.</p>
+
+  <h2>Data Storage</h2>
+  <p>
+    The Extension does not use any form of local storage, cookies, IndexedDB, or any other
+    persistence mechanism. It has no background service worker and retains no state between
+    page loads.
+  </p>
+
+  <h2>Third-Party Services</h2>
+  <p>
+    The Extension does not integrate with, send data to, or receive data from any third-party
+    services, APIs, or analytics platforms.
+  </p>
+
+  <h2>Changes to This Policy</h2>
+  <p>
+    If this privacy policy is updated, the changes will be reflected on this page with a revised
+    effective date. Continued use of the Extension after any changes constitutes acceptance of the
+    updated policy.
+  </p>
+
+  <h2>Contact</h2>
+  <p>
+    If you have questions or concerns about this privacy policy, please open an issue on the
+    <a href="https://github.com/ashwiniyer/insta-confirm-extension" target="_blank" rel="noopener">
+    GitHub repository</a>.
+  </p>
+
+  <p style="margin-top: 32px; font-size: 13px; color: #999;">
+    Effective date: February 22, 2026
+  </p>
+</main>
+
+<footer>
+  &copy; 2026 Instagram GraphQL Confirm &middot; Open-source Chrome Extension
+</footer>
+
 </body>
 </html>
