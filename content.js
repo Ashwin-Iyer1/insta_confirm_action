@@ -75,31 +75,86 @@
   // ── Modal UI ──────────────────────────────────────────────────────────
 
   const STYLE_TEXT = [
+    "@keyframes igq-fade-in {",
+    "  from { opacity:0; } to { opacity:1; }",
+    "}",
+    "@keyframes igq-slide-up {",
+    "  from { opacity:0;transform:translateY(24px) scale(0.97); }",
+    "  to { opacity:1;transform:translateY(0) scale(1); }",
+    "}",
     "#igq-confirm-overlay {",
-    "  position:fixed;inset:0;background:rgba(0,0,0,0.55);",
+    "  position:fixed;inset:0;background:rgba(0,0,0,0.6);",
     "  display:flex;align-items:center;justify-content:center;",
     "  z-index:2147483647;",
     "  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;",
+    "  animation:igq-fade-in .2s ease-out;",
+    "  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);",
     "}",
     "#igq-confirm-box {",
-    "  background:#fff;border-radius:12px;padding:28px 32px;max-width:480px;width:92%;",
-    "  box-shadow:0 8px 30px rgba(0,0,0,0.25);text-align:center;",
+    "  background:#fff;border-radius:16px;padding:0;max-width:440px;width:90%;",
+    "  box-shadow:0 20px 60px rgba(0,0,0,0.3),0 0 0 1px rgba(255,255,255,0.1);",
+    "  overflow:hidden;animation:igq-slide-up .25s ease-out;",
     "}",
-    "#igq-confirm-box h2 { margin:0 0 6px;font-size:17px;color:#262626; }",
-    "#igq-confirm-action { margin:0 0 14px;font-size:14px;color:#e1306c;font-weight:600; }",
+    "#igq-confirm-header {",
+    "  background:linear-gradient(135deg,#833ab4 0%,#e1306c 50%,#fd1d1d 100%);",
+    "  padding:20px 24px 16px;text-align:center;position:relative;",
+    "}",
+    "#igq-confirm-header::after {",
+    "  content:'';position:absolute;inset:0;",
+    "  background:radial-gradient(circle at 30% 50%,rgba(255,255,255,0.12) 0%,transparent 60%);",
+    "}",
+    "#igq-confirm-header h2 {",
+    "  margin:0;font-size:16px;color:#fff;font-weight:700;letter-spacing:-0.2px;position:relative;z-index:1;",
+    "}",
+    "#igq-confirm-header .igq-subtitle {",
+    "  font-size:12px;color:rgba(255,255,255,0.8);margin-top:4px;font-weight:500;position:relative;z-index:1;",
+    "}",
+    "#igq-confirm-body { padding:20px 24px; }",
+    "#igq-confirm-action {",
+    "  margin:0 0 14px;display:flex;align-items:center;gap:10px;",
+    "  padding:10px 14px;border-radius:10px;",
+    "  background:linear-gradient(135deg,#fce7f3,#ede9fe);",
+    "}",
+    "#igq-confirm-action .igq-action-icon {",
+    "  width:32px;height:32px;border-radius:8px;",
+    "  background:linear-gradient(135deg,#833ab4,#e1306c);",
+    "  display:flex;align-items:center;justify-content:center;",
+    "  font-size:15px;flex-shrink:0;color:#fff;",
+    "}",
+    "#igq-confirm-action .igq-action-text {",
+    "  font-size:13px;color:#262626;font-weight:600;",
+    "}",
+    "#igq-confirm-action .igq-action-text span {",
+    "  display:block;font-size:11px;color:#737373;font-weight:400;margin-top:1px;",
+    "}",
     "#igq-confirm-detail {",
-    "  margin:0 0 18px;font-size:12px;color:#555;word-break:break-all;",
-    "  max-height:220px;overflow-y:auto;text-align:left;background:#fafafa;",
-    "  padding:10px;border-radius:6px;border:1px solid #eee;white-space:pre-wrap;",
+    "  margin:0 0 16px;font-size:11.5px;color:#555;word-break:break-all;",
+    "  max-height:180px;overflow-y:auto;text-align:left;background:#f9fafb;",
+    "  padding:12px 14px;border-radius:10px;border:1px solid #e5e7eb;",
+    "  white-space:pre-wrap;line-height:1.5;",
+    "  font-family:'SF Mono','Fira Code','Consolas',monospace;",
     "}",
-    "#igq-confirm-buttons { display:flex;gap:12px;justify-content:center; }",
+    "#igq-confirm-detail::-webkit-scrollbar { width:5px; }",
+    "#igq-confirm-detail::-webkit-scrollbar-track { background:transparent; }",
+    "#igq-confirm-detail::-webkit-scrollbar-thumb { background:#d1d5db;border-radius:9px; }",
+    "#igq-confirm-buttons {",
+    "  display:flex;gap:10px;justify-content:stretch;",
+    "}",
     "#igq-confirm-buttons button {",
-    "  padding:10px 28px;border:none;border-radius:8px;font-size:14px;",
-    "  font-weight:600;cursor:pointer;transition:opacity .15s;",
+    "  flex:1;padding:11px 20px;border:none;border-radius:10px;font-size:14px;",
+    "  font-weight:600;cursor:pointer;transition:all .15s ease;letter-spacing:-0.1px;",
     "}",
-    "#igq-confirm-buttons button:hover { opacity:0.85; }",
-    "#igq-allow-btn { background:#0095f6;color:#fff; }",
-    "#igq-block-btn { background:#efefef;color:#262626; }",
+    "#igq-confirm-buttons button:active { transform:scale(0.97); }",
+    "#igq-allow-btn {",
+    "  background:linear-gradient(135deg,#833ab4,#e1306c);color:#fff;",
+    "  box-shadow:0 2px 8px rgba(225,48,108,0.3);",
+    "}",
+    "#igq-allow-btn:hover { box-shadow:0 4px 14px rgba(225,48,108,0.4);opacity:0.95; }",
+    "#igq-block-btn {",
+    "  background:#f3f4f6;color:#374151;",
+    "  box-shadow:0 1px 3px rgba(0,0,0,0.06);",
+    "}",
+    "#igq-block-btn:hover { background:#e5e7eb; }",
   ].join("\n");
 
   function waitForBody() {
@@ -132,37 +187,62 @@
         box.id = "igq-confirm-box";
         overlay.appendChild(box);
 
+        // Header with gradient
+        const header = document.createElement("div");
+        header.id = "igq-confirm-header";
+        box.appendChild(header);
+
         const h2 = document.createElement("h2");
         h2.textContent = title;
-        box.appendChild(h2);
+        header.appendChild(h2);
 
-        const actionP = document.createElement("p");
-        actionP.id = "igq-confirm-action";
-        actionP.textContent = friendlyName
-          ? "Action: " + friendlyName
-          : "Unknown action";
-        box.appendChild(actionP);
+        const subtitle = document.createElement("div");
+        subtitle.className = "igq-subtitle";
+        subtitle.textContent = "A request is about to be sent";
+        header.appendChild(subtitle);
+
+        // Body
+        const body = document.createElement("div");
+        body.id = "igq-confirm-body";
+        box.appendChild(body);
+
+        // Action badge
+        const actionDiv = document.createElement("div");
+        actionDiv.id = "igq-confirm-action";
+        body.appendChild(actionDiv);
+
+        const actionIcon = document.createElement("div");
+        actionIcon.className = "igq-action-icon";
+        actionIcon.textContent = url.includes("/likes") ? "\u2665" : "\u25C8";
+        actionDiv.appendChild(actionIcon);
+
+        const actionText = document.createElement("div");
+        actionText.className = "igq-action-text";
+        actionText.innerHTML = friendlyName
+          ? friendlyName + "<span>Detected action</span>"
+          : "Unknown action<span>Could not identify request type</span>";
+        actionDiv.appendChild(actionText);
 
         const detailPre = document.createElement("pre");
         detailPre.id = "igq-confirm-detail";
         let detailText = "URL: " + url;
         if (variables) detailText += "\n\nVariables:\n" + variables;
         detailPre.textContent = detailText;
-        box.appendChild(detailPre);
+        body.appendChild(detailPre);
 
         const btnDiv = document.createElement("div");
         btnDiv.id = "igq-confirm-buttons";
-        box.appendChild(btnDiv);
-
-        const allowBtn = document.createElement("button");
-        allowBtn.id = "igq-allow-btn";
-        allowBtn.textContent = "Allow";
-        btnDiv.appendChild(allowBtn);
+        body.appendChild(btnDiv);
 
         const blockBtn = document.createElement("button");
         blockBtn.id = "igq-block-btn";
         blockBtn.textContent = "Block";
         btnDiv.appendChild(blockBtn);
+
+        const allowBtn = document.createElement("button");
+        allowBtn.id = "igq-allow-btn";
+        allowBtn.textContent = "Allow";
+        btnDiv.appendChild(allowBtn);
 
         document.body.appendChild(overlay);
 
