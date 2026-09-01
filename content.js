@@ -12,14 +12,16 @@
    * ================================================================ */
 
   const INTERCEPT_PATTERNS = [
-    "/graphql/query",
+    "/graphql",
+    "/api/graphql",
     "/api/v1/web/likes",
   ];
 
   function shouldIntercept(url, bodyStr) {
+    console.log("[IG Request Confirm] Checking URL:", url);
     if (url.includes("/api/v1/web/likes")) return true;
-    if (url.includes("/graphql/query")) {
-      // ONLY intercept graphql requests that have container_module = feed_timeline
+    if (url.includes("/api/graphql") || url.includes("/graphql")) {
+      // Instagram web uses /api/graphql for many feed mutations, not just /graphql/query.
       return isFeedTimeline(bodyStr);
     }
     return false;
@@ -63,10 +65,14 @@
     if (!bodyStr) return false;
     try {
       const params = new URLSearchParams(bodyStr);
+      // console.log(:params.get("variables"));
       const v = params.get("variables");
       if (!v) return false;
       const vars = JSON.parse(v);
-      return vars.container_module === "feed_timeline" || vars.container_module === "profile";
+      const input = vars && (vars.input || vars);
+      const moduleName = input && (input.container_module || input.containerModule);
+      if (!moduleName) return false;
+      return true;
     } catch (_) {
       return false;
     }
