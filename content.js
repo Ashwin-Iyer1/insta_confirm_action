@@ -1,337 +1,141 @@
-// content.js – runs in MAIN world at document_start via manifest.
-// Chrome natively injects this into the page context, bypassing CSP.
+/* MAIN-world guard. Also exported for the offline test bench. */
 (function () {
-  "use strict";
-
-  /* ================================================================
-   *  Instagram Request Confirm
-   *  Intercepts fetch() and XMLHttpRequest for:
-   *    - /graphql/query
-   *    - /api/v1/web/likes
-   *  and shows a confirmation dialog before they fire.
-   * ================================================================ */
-
-  const INTERCEPT_PATTERNS = [
-    "/graphql",
-    "/api/graphql",
-    "/api/v1/web/likes",
-  ];
-
-  function shouldIntercept(url, bodyStr) {
-    console.log("[IG Request Confirm] Checking URL:", url);
-    if (url.includes("/api/v1/web/likes")) return true;
-    if (url.includes("/api/graphql") || url.includes("/graphql")) {
-      // Instagram web uses /api/graphql for many feed mutations, not just /graphql/query.
-      return isFeedTimeline(bodyStr);
+  'use strict';
+  function install(win, { baseURL = win.location.href, timeout = 30000 } = {}) {
+    const core = win.InstaConfirmCore;
+    const nativeFetch = win.fetch.bind(win);
+    const proto = win.XMLHttpRequest.prototype;
+    const nativeOpen = proto.open, nativeSend = proto.send, nativeAbort = proto.abort;
+    const nativeHeader = proto.setRequestHeader;
+    const states = new WeakMap();
+    const stats = { allowed: 0, cancelled: 0, pending: 0 };
+    const queue = [];
+    let active = null;
+    const cancelled = () => new DOMException('Action cancelled before sending', 'AbortError');
+    function update() { win.dispatchEvent(new CustomEvent('instaconfirm:status', { detail: { ...stats } })); }
+    function pump() {
+      if (active || !queue.length) return;
+      if (!win.document.body) {
+        win.document.addEventListener('DOMContentLoaded', pump, { once: true });
+        return;
+      }
+      const item = queue.shift();
+      active = item;
+      const previous = win.document.activeElement;
+      const host = win.document.createElement('div');
+      host.id = 'instaconfirm-dialog';
+      const shadow = host.attachShadow({ mode: 'open' });
+      const style = win.document.createElement('style');
+      style.textContent = `:host{all:initial}dialog{box-sizing:border-box;width:min(460px,calc(100vw - 32px));border:1px solid #bad1cc;border-radius:18px;padding:28px;background:#f8faf7;color:#142e28;font:16px/1.5 system-ui;box-shadow:0 24px 100px #0006}dialog::backdrop{background:#10271fcc;backdrop-filter:blur(4px)}h2{font-size:24px;line-height:1.2;margin:10px 0 14px;overflow-wrap:anywhere}p{margin:12px 0}small{color:#516b63}code{display:block;background:#e9efeb;padding:12px;border-radius:8px;font-size:12px;overflow-wrap:anywhere}footer{display:flex;gap:10px;margin-top:24px}button{font:inherit;cursor:pointer;min-height:44px;border:1px solid #758f86;padding:10px 18px;border-radius:8px;background:white;color:#163d31}button:last-child{background:#163d31;color:white}button:focus-visible{outline:3px solid #d18e23;outline-offset:3px}`;
+      const dialog = win.document.createElement('dialog');
+      dialog.setAttribute('aria-labelledby', 'confirm-title');
+      const eyebrow = win.document.createElement('small'); eyebrow.textContent = 'INSTAGRAM ACTION GUARD';
+      const title = win.document.createElement('h2'); title.id = 'confirm-title'; title.textContent = item.info.title;
+      const explanation = win.document.createElement('p'); explanation.textContent = 'Send this action to Instagram? It is waiting locally for your decision.';
+      const details = win.document.createElement('code'); details.textContent = `POST ${item.info.path}${item.info.fields.length ? '\nVariable names: ' + item.info.fields.join(', ') : ''}`;
+      const note = win.document.createElement('small'); note.textContent = 'Values are hidden. Escape, closing this page, or 30 seconds without a decision cancels the action.';
+      const footer = win.document.createElement('footer');
+      const cancel = win.document.createElement('button'); cancel.textContent = 'Cancel action'; cancel.autofocus = true;
+      const allow = win.document.createElement('button'); allow.textContent = 'Allow once';
+      cancel.onclick = () => item.finish(false); allow.onclick = () => item.finish(true);
+      dialog.oncancel = event => { event.preventDefault(); item.finish(false); };
+      footer.append(cancel, allow); dialog.append(eyebrow, title, explanation, details, note, footer);
+      shadow.append(style, dialog); win.document.body.append(host);
+      item.cleanupUI = () => { dialog.close(); host.remove(); if (previous?.isConnected && typeof previous.focus === 'function') previous.focus(); };
+      try { dialog.showModal(); cancel.focus(); } catch { item.finish(false); }
     }
-    return false;
-  }
-
-  // ── Helpers ───────────────────────────────────────────────────────────
-
-  function parseFriendlyName(url, bodyStr) {
-    if (url.includes("/api/v1/web/likes")) {
-      if (url.includes("/like/"))   return "Like Post";
-      if (url.includes("/unlike/")) return "Unlike Post";
-      return "Likes API";
-    }
-    if (!bodyStr) return null;
-    try {
-      const params = new URLSearchParams(bodyStr);
-      return (
-        params.get("fb_api_req_friendly_name") ||
-        params.get("x-fb-friendly-name") ||
-        null
-      );
-    } catch (_) {
-      return null;
-    }
-  }
-
-  function parseVariables(bodyStr) {
-    if (!bodyStr) return null;
-    try {
-      const params = new URLSearchParams(bodyStr);
-      const v = params.get("variables");
-      if (!v) return null;
-      return JSON.stringify(JSON.parse(v), null, 2);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  /** Returns true if the variables contain container_module = feed_timeline. */
-  function isFeedTimeline(bodyStr) {
-    if (!bodyStr) return false;
-    try {
-      const params = new URLSearchParams(bodyStr);
-      // console.log(:params.get("variables"));
-      const v = params.get("variables");
-      if (!v) return false;
-      const vars = JSON.parse(v);
-      const input = vars && (vars.input || vars);
-      const moduleName = input && (input.container_module || input.containerModule);
-      if (!moduleName) return false;
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  // ── Modal UI ──────────────────────────────────────────────────────────
-
-  const STYLE_TEXT = [
-    "@keyframes igq-fade-in {",
-    "  from { opacity:0; } to { opacity:1; }",
-    "}",
-    "@keyframes igq-slide-up {",
-    "  from { opacity:0;transform:translateY(24px) scale(0.97); }",
-    "  to { opacity:1;transform:translateY(0) scale(1); }",
-    "}",
-    "#igq-confirm-overlay {",
-    "  position:fixed;inset:0;background:rgba(0,0,0,0.6);",
-    "  display:flex;align-items:center;justify-content:center;",
-    "  z-index:2147483647;",
-    "  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;",
-    "  animation:igq-fade-in .2s ease-out;",
-    "  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);",
-    "}",
-    "#igq-confirm-box {",
-    "  background:#fff;border-radius:16px;padding:0;max-width:440px;width:90%;",
-    "  box-shadow:0 20px 60px rgba(0,0,0,0.3),0 0 0 1px rgba(255,255,255,0.1);",
-    "  overflow:hidden;animation:igq-slide-up .25s ease-out;",
-    "}",
-    "#igq-confirm-header {",
-    "  background:linear-gradient(135deg,#833ab4 0%,#e1306c 50%,#fd1d1d 100%);",
-    "  padding:20px 24px 16px;text-align:center;position:relative;",
-    "}",
-    "#igq-confirm-header::after {",
-    "  content:'';position:absolute;inset:0;",
-    "  background:radial-gradient(circle at 30% 50%,rgba(255,255,255,0.12) 0%,transparent 60%);",
-    "}",
-    "#igq-confirm-header h2 {",
-    "  margin:0;font-size:16px;color:#fff;font-weight:700;letter-spacing:-0.2px;position:relative;z-index:1;",
-    "}",
-    "#igq-confirm-header .igq-subtitle {",
-    "  font-size:12px;color:rgba(255,255,255,0.8);margin-top:4px;font-weight:500;position:relative;z-index:1;",
-    "}",
-    "#igq-confirm-body { padding:20px 24px; }",
-    "#igq-confirm-action {",
-    "  margin:0 0 14px;display:flex;align-items:center;gap:10px;",
-    "  padding:10px 14px;border-radius:10px;",
-    "  background:linear-gradient(135deg,#fce7f3,#ede9fe);",
-    "}",
-    "#igq-confirm-action .igq-action-icon {",
-    "  width:32px;height:32px;border-radius:8px;",
-    "  background:linear-gradient(135deg,#833ab4,#e1306c);",
-    "  display:flex;align-items:center;justify-content:center;",
-    "  font-size:15px;flex-shrink:0;color:#fff;",
-    "}",
-    "#igq-confirm-action .igq-action-text {",
-    "  font-size:13px;color:#262626;font-weight:600;",
-    "}",
-    "#igq-confirm-action .igq-action-text span {",
-    "  display:block;font-size:11px;color:#737373;font-weight:400;margin-top:1px;",
-    "}",
-    "#igq-confirm-detail {",
-    "  margin:0 0 16px;font-size:11.5px;color:#555;word-break:break-all;",
-    "  max-height:180px;overflow-y:auto;text-align:left;background:#f9fafb;",
-    "  padding:12px 14px;border-radius:10px;border:1px solid #e5e7eb;",
-    "  white-space:pre-wrap;line-height:1.5;",
-    "  font-family:'SF Mono','Fira Code','Consolas',monospace;",
-    "}",
-    "#igq-confirm-detail::-webkit-scrollbar { width:5px; }",
-    "#igq-confirm-detail::-webkit-scrollbar-track { background:transparent; }",
-    "#igq-confirm-detail::-webkit-scrollbar-thumb { background:#d1d5db;border-radius:9px; }",
-    "#igq-confirm-buttons {",
-    "  display:flex;gap:10px;justify-content:stretch;",
-    "}",
-    "#igq-confirm-buttons button {",
-    "  flex:1;padding:11px 20px;border:none;border-radius:10px;font-size:14px;",
-    "  font-weight:600;cursor:pointer;transition:all .15s ease;letter-spacing:-0.1px;",
-    "}",
-    "#igq-confirm-buttons button:active { transform:scale(0.97); }",
-    "#igq-allow-btn {",
-    "  background:linear-gradient(135deg,#833ab4,#e1306c);color:#fff;",
-    "  box-shadow:0 2px 8px rgba(225,48,108,0.3);",
-    "}",
-    "#igq-allow-btn:hover { box-shadow:0 4px 14px rgba(225,48,108,0.4);opacity:0.95; }",
-    "#igq-block-btn {",
-    "  background:#f3f4f6;color:#374151;",
-    "  box-shadow:0 1px 3px rgba(0,0,0,0.06);",
-    "}",
-    "#igq-block-btn:hover { background:#e5e7eb; }",
-  ].join("\n");
-
-  function waitForBody() {
-    return new Promise((resolve) => {
-      if (document.body) return resolve();
-      const obs = new MutationObserver(() => {
-        if (document.body) { obs.disconnect(); resolve(); }
-      });
-      obs.observe(document.documentElement, { childList: true });
-    });
-  }
-
-  function showConfirmation(url, bodyStr) {
-    const friendlyName = parseFriendlyName(url, bodyStr);
-    const variables = parseVariables(bodyStr);
-    const title = url.includes("/graphql/query")
-      ? "\u26a0\ufe0f GraphQL Request Intercepted"
-      : "\u26a0\ufe0f Instagram API Request Intercepted";
-
-    return new Promise((resolve) => {
-      waitForBody().then(() => {
-        const overlay = document.createElement("div");
-        overlay.id = "igq-confirm-overlay";
-
-        const styleEl = document.createElement("style");
-        styleEl.textContent = STYLE_TEXT;
-        overlay.appendChild(styleEl);
-
-        const box = document.createElement("div");
-        box.id = "igq-confirm-box";
-        overlay.appendChild(box);
-
-        // Header with gradient
-        const header = document.createElement("div");
-        header.id = "igq-confirm-header";
-        box.appendChild(header);
-
-        const h2 = document.createElement("h2");
-        h2.textContent = title;
-        header.appendChild(h2);
-
-        const subtitle = document.createElement("div");
-        subtitle.className = "igq-subtitle";
-        subtitle.textContent = "A request is about to be sent";
-        header.appendChild(subtitle);
-
-        // Body
-        const body = document.createElement("div");
-        body.id = "igq-confirm-body";
-        box.appendChild(body);
-
-        // Action badge
-        const actionDiv = document.createElement("div");
-        actionDiv.id = "igq-confirm-action";
-        body.appendChild(actionDiv);
-
-        const actionIcon = document.createElement("div");
-        actionIcon.className = "igq-action-icon";
-        actionIcon.textContent = url.includes("/likes") ? "\u2665" : "\u25C8";
-        actionDiv.appendChild(actionIcon);
-
-        const actionText = document.createElement("div");
-        actionText.className = "igq-action-text";
-        actionText.innerHTML = friendlyName
-          ? friendlyName + "<span>Detected action</span>"
-          : "Unknown action<span>Could not identify request type</span>";
-        actionDiv.appendChild(actionText);
-
-        const detailPre = document.createElement("pre");
-        detailPre.id = "igq-confirm-detail";
-        let detailText = "URL: " + url;
-        if (variables) detailText += "\n\nVariables:\n" + variables;
-        detailPre.textContent = detailText;
-        body.appendChild(detailPre);
-
-        const btnDiv = document.createElement("div");
-        btnDiv.id = "igq-confirm-buttons";
-        body.appendChild(btnDiv);
-
-        const blockBtn = document.createElement("button");
-        blockBtn.id = "igq-block-btn";
-        blockBtn.textContent = "Block";
-        btnDiv.appendChild(blockBtn);
-
-        const allowBtn = document.createElement("button");
-        allowBtn.id = "igq-allow-btn";
-        allowBtn.textContent = "Allow";
-        btnDiv.appendChild(allowBtn);
-
-        document.body.appendChild(overlay);
-
-        allowBtn.addEventListener("click", () => { overlay.remove(); resolve(true); });
-        blockBtn.addEventListener("click", () => { overlay.remove(); resolve(false); });
-      });
-    });
-  }
-
-  // ── Intercept fetch() ─────────────────────────────────────────────────
-
-  const _fetch = window.fetch;
-
-  window.fetch = function (...args) {
-    const [resource, init] = args;
-    const url =
-      typeof resource === "string"
-        ? resource
-        : resource instanceof Request
-        ? resource.url
-        : String(resource);
-
-    let bodyText = "";
-    if (init && init.body != null) {
-      bodyText =
-        typeof init.body === "string"
-          ? init.body
-          : init.body instanceof URLSearchParams
-          ? init.body.toString()
-          : "(binary body)";
-    }
-
-    if (shouldIntercept(url, bodyText)) {
-      return showConfirmation(url, bodyText).then((allowed) => {
-        if (!allowed) {
-          return new Response('{"status":"ok"}', {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return _fetch.apply(window, args);
+    function confirm(info, signal) {
+      if (signal?.aborted || stats.pending >= 20) { stats.cancelled++; update(); return Promise.resolve(false); }
+      return new Promise(resolve => {
+        let settled = false;
+        const item = { info, finish(allow) {
+          if (settled) return;
+          settled = true; clearTimeout(timer); signal?.removeEventListener('abort', abort);
+          const index = queue.indexOf(item); if (index >= 0) queue.splice(index, 1);
+          item.cleanupUI?.(); if (active === item) active = null;
+          stats.pending--; stats[allow ? 'allowed' : 'cancelled']++; update();
+          resolve(allow); pump();
+        } };
+        const abort = () => item.finish(false);
+        const timer = setTimeout(abort, timeout);
+        signal?.addEventListener('abort', abort, { once: true });
+        stats.pending++; queue.push(item); update(); pump();
       });
     }
-    return _fetch.apply(window, args);
-  };
-
-  // ── Intercept XMLHttpRequest ──────────────────────────────────────────
-
-  const _xhrOpen = XMLHttpRequest.prototype.open;
-  const _xhrSend = XMLHttpRequest.prototype.send;
-
-  XMLHttpRequest.prototype.open = function (method, url, ...rest) {
-    this.__igqUrl = typeof url === "string" ? url : String(url);
-    return _xhrOpen.call(this, method, url, ...rest);
-  };
-
-  XMLHttpRequest.prototype.send = function (body) {
-    const bodyText = body ? String(body) : "";
-    if (this.__igqUrl && shouldIntercept(this.__igqUrl, bodyText)) {
-      const xhr = this;
-
-      showConfirmation(this.__igqUrl, bodyText).then((allowed) => {
-        if (allowed) {
-          _xhrSend.call(xhr, body);
+    win.fetch = async function (input, init) {
+      const request = input instanceof win.Request ? input : null;
+      const url = request?.url || String(input);
+      const method = init?.method || request?.method || 'GET';
+      if (!core.endpoint(url, method, baseURL)) return nativeFetch(input, init);
+      const signal = init?.signal || request?.signal;
+      if (signal?.aborted) throw cancelled();
+      let body = init?.body;
+      // Inspect a clone: the original request remains readable by native fetch.
+      if (body == null && request?.body) {
+        const clone = request.clone();
+        const reader = clone.body.getReader();
+        const decoder = new TextDecoder();
+        let total = 0; body = '';
+        try {
+          while (true) {
+            const chunk = await reader.read(); if (chunk.done) break;
+            total += chunk.value.length;
+            if (total > core.MAX_BODY) { body = ''; void reader.cancel(); break; }
+            body += decoder.decode(chunk.value, { stream: true });
+          }
+          body += decoder.decode();
+        } catch { body = ''; }
+      }
+      const info = core.classify(url, method, body, new Headers(init?.headers || request?.headers), baseURL);
+      if (!info) return nativeFetch(input, init);
+      if (!await confirm(info, signal) || signal?.aborted) throw cancelled();
+      return nativeFetch(input, init);
+    };
+    proto.open = function (method, url, async = true, ...rest) {
+      const old = states.get(this); old?.controller?.abort();
+      const result = nativeOpen.call(this, method, url, async, ...rest);
+      states.set(this, { method, url: String(url), async: async !== false, headers: {}, pending: false });
+      return result;
+    };
+    proto.setRequestHeader = function (name, value) {
+      if (states.get(this)?.pending) throw new DOMException('Request already waiting for confirmation', 'InvalidStateError');
+      const result = nativeHeader.call(this, name, value);
+      const state = states.get(this); if (state) state.headers[name.toLowerCase()] = value;
+      return result;
+    };
+    proto.abort = function () {
+      const state = states.get(this);
+      if (state?.pending) {
+        state.pending = false; state.controller.abort();
+        nativeAbort.call(this);
+        this.dispatchEvent(new ProgressEvent('abort')); this.dispatchEvent(new ProgressEvent('loadend'));
+        return;
+      }
+      return nativeAbort.call(this);
+    };
+    proto.send = function (body) {
+      const state = states.get(this);
+      if (!state || !core.endpoint(state.url, state.method, baseURL)) return nativeSend.call(this, body);
+      if (state.pending || state.sent || this.readyState !== 1) throw new DOMException('Request is not available for sending', 'InvalidStateError');
+      const info = core.classify(state.url, state.method, body, state.headers, baseURL);
+      if (!info) return nativeSend.call(this, body);
+      if (!state.async) throw new DOMException('Synchronous actions cannot display an asynchronous confirmation', 'NotSupportedError');
+      state.pending = true; state.sent = true; state.controller = new AbortController();
+      confirm(info, state.controller.signal).then(allow => {
+        if (states.get(this) !== state || !state.pending) return;
+        state.pending = false;
+        if (allow) {
+          try { nativeSend.call(this, body); }
+          catch { nativeAbort.call(this); this.dispatchEvent(new ProgressEvent('error')); this.dispatchEvent(new ProgressEvent('loadend')); }
         } else {
-          Object.defineProperty(xhr, "readyState",    { value: 4, writable: false });
-          Object.defineProperty(xhr, "status",        { value: 200, writable: false });
-          Object.defineProperty(xhr, "responseText",  { value: '{"status":"ok"}', writable: false });
-          Object.defineProperty(xhr, "response",      { value: '{"status":"ok"}', writable: false });
-          xhr.dispatchEvent(new Event("readystatechange"));
-          xhr.dispatchEvent(new Event("load"));
-          xhr.dispatchEvent(new Event("loadend"));
+          nativeAbort.call(this); this.dispatchEvent(new ProgressEvent('abort')); this.dispatchEvent(new ProgressEvent('loadend'));
         }
       });
-      return;
-    }
-    return _xhrSend.call(this, body);
-  };
-
-  console.log(
-    "%c[IG Request Confirm]%c Interceptor active - watching: " +
-      INTERCEPT_PATTERNS.join(", "),
-    "color:#0095f6;font-weight:bold",
-    "color:inherit"
-  );
+    };
+    win.addEventListener('pagehide', () => { active?.finish(false); [...queue].forEach(item => item.finish(false)); });
+    update();
+    return { getStats: () => ({ ...stats }) };
+  }
+  window.InstaConfirmInstall = install;
+  if (['instagram.com', 'www.instagram.com'].includes(location.hostname)) install(window);
 })();
